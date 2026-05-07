@@ -1,10 +1,33 @@
 // modules/constants.js
 /**
  * 玉子市场 - 常量定义
- * @version 2.8.5
+ * @version 2.9.2
  */
 
 export const extensionName = 'TamakoMarket';
+export const extensionVersion = '2.9.2';
+export const remoteManifestUrl = 'https://raw.githubusercontent.com/yuzi83/st-tamako-market/main/manifest.json';
+
+export const versionHistory = [
+    {
+        version: '2.9.2',
+        title: '设置页更新提示',
+        notes: [
+            '设置标题旁新增 NEW 标记：当检测到远端最新版本高于本地安装版本时显示。',
+            '设置页新增“版本说明”按钮：可查看从本地安装版本到远端最新版本之间的累计更新内容。',
+            '点击版本说明只负责展示更新内容，不会把 NEW 当成已读提示隐藏。',
+        ],
+    },
+    {
+        version: '2.9.1',
+        title: 'Quick Reply 联动与隐藏悬浮按钮',
+        notes: [
+            '新增 /tamako-toggle、/tamako-open 与 /tamako-close Slash Command，可直接被 Quick Reply 按钮调用。',
+            '扩展设置新增“隐藏悬浮窗按钮”，适合只用 QR 控制窗口的用户。',
+            '新增可导入的“玉子市场qr” Quick Reply 文件，默认提供单个“玉子市场”切换按钮。',
+        ],
+    },
+];
 
 export const ICONS = {
     store: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -142,6 +165,9 @@ export const defaultSettings = {
     maxStoredPlots: 50,
     toggleX: null,
     toggleY: null,
+    hideToggleButton: false,
+    remoteVersion: '',
+    remoteVersionCheckedAt: 0,
     beautifier: {
         enabled: false,
         activeTemplateId: null,

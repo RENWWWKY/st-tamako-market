@@ -178,6 +178,9 @@ function normalizeSettingsShape(settings) {
         maxStoredPlots: normalizeBoundedInteger(source.maxStoredPlots, defaults.maxStoredPlots, MIN_STORED_PLOTS, MAX_STORED_PLOTS),
         toggleX: normalizeFiniteNumber(source.toggleX, null),
         toggleY: normalizeFiniteNumber(source.toggleY, null),
+        hideToggleButton: source.hideToggleButton === true,
+        remoteVersion: typeof source.remoteVersion === 'string' ? source.remoteVersion.trim() : defaults.remoteVersion,
+        remoteVersionCheckedAt: normalizeFiniteNumber(source.remoteVersionCheckedAt, defaults.remoteVersionCheckedAt),
         beautifier: normalizeBeautifierSettings(source.beautifier),
         customTheme: normalizeCustomTheme(source.customTheme),
     };

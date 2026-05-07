@@ -9,6 +9,7 @@
 import { ICONS, themes } from './constants.js';
 import { initEventListenerManager } from './state.js';
 import { getSettings, saveSetting } from './settings.js';
+import { shouldShowToggleButton } from './toggle-visibility-core.js';
 import {
     isMobileDevice,
     getDefaultTogglePosition,
@@ -24,7 +25,9 @@ const CLICK_THRESHOLD_MS = 300;
 export function createToggleButton() {
     const existing = document.getElementById(TOGGLE_ID);
     if (existing) {
-        return $(existing);
+        const $existing = $(existing);
+        applyToggleButtonVisibility(getSettings(), $existing);
+        return $existing;
     }
 
     const settings = getSettings();
@@ -41,6 +44,7 @@ export function createToggleButton() {
     const $button = $(button);
     applyTogglePosition($button, settings);
     applyToggleTheme($button, settings);
+    applyToggleButtonVisibility(settings, $button);
     initToggleDraggable($button);
 
     return $button;
@@ -48,6 +52,19 @@ export function createToggleButton() {
 
 export function removeToggleButton() {
     document.getElementById(TOGGLE_ID)?.remove();
+}
+
+export function applyToggleButtonVisibility(settings = getSettings(), $button = $(`#${TOGGLE_ID}`)) {
+    if (!$button?.length) {
+        return;
+    }
+
+    const shouldShow = shouldShowToggleButton(settings);
+    $button.toggle(shouldShow);
+
+    if (!shouldShow) {
+        $button.removeClass('active has-new dragging');
+    }
 }
 
 function applyTogglePosition($button, settings) {

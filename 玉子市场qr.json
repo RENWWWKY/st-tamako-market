@@ -1,0 +1,30 @@
+{
+  "version": 2,
+  "name": "玉子市场qr",
+  "disableSend": false,
+  "placeBeforeInput": false,
+  "injectInput": false,
+  "color": "rgba(0, 0, 0, 0)",
+  "onlyBorderColor": false,
+  "qrList": [
+    {
+      "id": 1,
+      "showLabel": true,
+      "label": "玉子市场",
+      "title": "打开或关闭玉子市场悬浮窗",
+      "message": "/tamako-toggle",
+      "contextList": [],
+      "preventAutoExecute": true,
+      "isHidden": false,
+      "executeOnStartup": false,
+      "executeOnUser": false,
+      "executeOnAi": false,
+      "executeOnChatChange": false,
+      "executeOnGroupMemberDraft": false,
+      "executeOnNewChat": false,
+      "executeBeforeGeneration": false,
+      "automationId": ""
+    }
+  ],
+  "idIndex": 1
+}
