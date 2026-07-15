@@ -12,6 +12,7 @@ import { createEventListenerManager } from './events.js';
  * @typedef {Object} CapturedPlot
  * @property {string} content - 捕获的内容
  * @property {string} rawMessage - 原始消息
+ * @property {'qrf_plot'|'mes'} sourceKind - 权威来源类型
  * @property {number} timestamp - 时间戳
  * @property {number} messageIndex - 消息索引
  */
@@ -93,10 +94,10 @@ export let validateDebounceTimer = null;
 export let beautifierLoadTimeout = null;
 
 // ===== 事件追踪 =====
- 
+
 /** @type {MutationObserver|null} */
 export let mutationObserver = null;
- 
+
 /** @type {EventListenerManager|null} 事件监听器管理器 */
 export let eventListenerManager = null;
 

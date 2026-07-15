@@ -11,6 +11,7 @@ import {
 } from './state.js';
 import { getDeraMessage, getActiveTemplate } from './utils.js';
 import { buildChatDataSignature } from './beautifier-cache.js';
+import { projectUserMessage, resolveUserMessageSource } from './message-source-core.js';
 
 export { clearCache as clearTemplateCache };
 
@@ -116,20 +117,7 @@ export function extractAllChatData() {
             return cachedChatData;
         }
 
-        data.chat = context.chat.map((msg) => {
-            if (!msg) return null;
-            return {
-                mes: msg.mes || '',
-                is_user: msg.is_user || false,
-                extra: msg.extra ? { qrf_plot: msg.extra.qrf_plot } : null,
-                qrf_plot: msg.qrf_plot,
-                swipes: msg.swipes ? msg.swipes.map(s => {
-                    if (typeof s === 'string') return s;
-                    if (s && s.extra && s.extra.qrf_plot) return { extra: { qrf_plot: s.extra.qrf_plot } };
-                    return null;
-                }).filter(Boolean) : null
-            };
-        }).filter(Boolean);
+        data.chat = context.chat.map(projectUserMessage).filter(Boolean);
 
         const tagNames = ['stage', 'recall', 'prologue', 'plot', 'cast', 'scene_direction', 'content', 'file'];
         for (const tag of tagNames) {
@@ -146,62 +134,95 @@ export function extractAllChatData() {
     return data;
 }
 
-function extractTagFromChatHistory(chat, tagName) {
+export function extractTagFromChatHistory(chat, tagName) {
     if (!chat) return '';
-    const regex = new RegExp(`(?<!\`)<${tagName}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tagName}>(?!\`)`, 'i');
+    const regex = new RegExp(`(?<!\`)<${tagName}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tagName}\\s*>(?!\`)`, 'i');
 
     for (let i = chat.length - 1; i >= 0; i--) {
-        const msg = chat[i];
-        if (!msg) continue;
-        const sources = [msg.extra?.qrf_plot, msg.mes, msg.qrf_plot];
-        if (msg.swipes && Array.isArray(msg.swipes)) {
-            for (const swipe of msg.swipes) {
-                if (typeof swipe === 'string') sources.push(swipe);
-                else if (swipe?.extra?.qrf_plot) sources.push(swipe.extra.qrf_plot);
-            }
-        }
-        for (const src of sources) {
-            if (!src) continue;
-            const match = src.match(regex);
-            if (match && match[1]) return match[1].trim();
+        const source = resolveUserMessageSource(chat[i]);
+        if (!source) continue;
+        const match = source.text.match(regex);
+        if (match && match[1]) return match[1].trim();
+    }
+    return '';
+}
+
+export function extractFileFromContentTag(chat) {
+    if (!chat) return '';
+    for (let i = chat.length - 1; i >= 0; i--) {
+        const source = resolveUserMessageSource(chat[i]);
+        if (!source) continue;
+        const contentPattern = /(?<!`)<content(?:\s[^>]*)?>([\s\S]*?)<\/content\s*>(?!`)/gi;
+        let contentMatch;
+        while ((contentMatch = contentPattern.exec(source.text)) !== null) {
+            const contentInner = contentMatch[1];
+            const fileMatch = contentInner.match(/(?<!`)<file(?:\s[^>]*)?>([\s\S]*?)<\/file\s*>(?!`)/i);
+            if (fileMatch && fileMatch[1]) return fileMatch[1].trim();
         }
     }
     return '';
 }
 
-function extractFileFromContentTag(chat) {
-    if (!chat) return '';
-    for (let i = chat.length - 1; i >= 0; i--) {
-        const msg = chat[i];
-        if (!msg) continue;
-        const sources = [msg.extra?.qrf_plot, msg.mes, msg.qrf_plot];
-        if (msg.swipes && Array.isArray(msg.swipes)) {
-            for (const swipe of msg.swipes) {
-                if (typeof swipe === 'string') sources.push(swipe);
-                else if (swipe?.extra?.qrf_plot) sources.push(swipe.extra.qrf_plot);
-            }
-        }
-        for (const src of sources) {
-            if (!src) continue;
-            const contentPattern = /(?<!`)<content(?:\s[^>]*)?>([\\s\\S]*?)<\/content>(?!`)/gi;
-            let contentMatch;
-            while ((contentMatch = contentPattern.exec(src)) !== null) {
-                const contentInner = contentMatch[1];
-                const fileMatch = contentInner.match(/(?<!`)<file(?:\s[^>]*)?>([\\s\\S]*?)<\/file>(?!`)/i);
-                if (fileMatch && fileMatch[1]) return fileMatch[1].trim();
-            }
-        }
-    }
-    return '';
+/**
+ * 编码 HTML script raw-text 上下文中的闭合标签起始序列，防止提前结束元素。
+ * 该处理只用于兼容 <script type="text/plain"> 内的 $1；精确原文仍由
+ * window.TAMAKO_INJECTED_RAW 提供。
+ * @param {string} text
+ * @returns {string}
+ */
+export function escapeScriptRawText(text) {
+    return String(text ?? '').replace(/<\/script/gi, '<\\/script');
 }
 
-// ===== HTML 转义函数 =====
-
+/**
+ * 对普通 HTML 占位符做保守结构编码。
+ * 除基本 HTML 元字符外，同时编码引号、反引号、等号和 ASCII 空白，
+ * 避免 `$1` 从文本或属性值中闭合当前结构。模板仍必须避免把 `$1`
+ * 放进 href、事件属性等具有执行语义的槽位。
+ * @param {string} text
+ * @returns {string}
+ */
 function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    return String(text ?? '').replace(/[&<>"'`=\t\n\f\r ]/g, character => {
+        switch (character) {
+            case '&': return '&amp;';
+            case '<': return '&lt;';
+            case '>': return '&gt;';
+            case '"': return '&quot;';
+            case "'": return '&#39;';
+            case '`': return '&#96;';
+            case '=': return '&#61;';
+            case '\t': return '&#9;';
+            case '\n': return '&#10;';
+            case '\f': return '&#12;';
+            case '\r': return '&#13;';
+            case ' ': return '&#32;';
+            default: return character;
+        }
+    });
+}
+
+/**
+ * 按 HTML 上下文单次替换美化器占位符。
+ * text/plain script 数据块保留文本兼容，但编码闭合 script；其他位置使用 HTML 转义。
+ * 单次 replace 不会再次扫描替换结果，因此原文中的 `$1` 不会递归展开。
+ * @param {string} html
+ * @param {string} rawMessage
+ * @returns {string}
+ */
+export function replaceBeautifierPlaceholders(html, rawMessage) {
+    const template = String(html ?? '');
+    if (!template.includes('$1')) return template;
+
+    const rawTextMessage = escapeScriptRawText(rawMessage);
+    const escapedRawMessage = escapeHtml(rawMessage || '');
+    return template.replace(
+        /(<script\b[^>]*type\s*=\s*["']text\/plain["'][^>]*>)([\s\S]*?)(<\/script>)|\$1/gi,
+        (match, openTag, inner, closeTag) => {
+            if (!openTag) return escapedRawMessage;
+            return openTag + inner.replace(/\$1/g, rawTextMessage) + closeTag;
+        }
+    );
 }
 
 // ===== 模板注入 =====
@@ -221,26 +242,17 @@ function injectDataIntoTemplate(html, rawMessage, fullChatData) {
             window.TAMAKO_INJECTED_RAW = parsed.raw || '';
         }
     } catch(e) {
-        console.log('[玉子市场] 数据解析跳过，使用模板自带函数');
+        console.log('[玉子市场] 数据解析失败，使用空注入数据');
     }
-    
-    window.getSTChat = window.getSTChat || function() {
-        if (window.TAMAKO_INJECTED_CHAT && window.TAMAKO_INJECTED_CHAT.length > 0) {
-            return window.TAMAKO_INJECTED_CHAT;
-        }
-        try {
-            if (window.parent && window.parent.SillyTavern) {
-                var ctx = window.parent.SillyTavern.getContext();
-                if (ctx && ctx.chat) return ctx.chat;
-            }
-        } catch(e) {}
-        return [];
+
+    window.getSTChat = function() {
+        return Array.isArray(window.TAMAKO_INJECTED_CHAT) ? window.TAMAKO_INJECTED_CHAT : [];
     };
-    
+
     window.getContext = window.getContext || function() {
         return { chat: window.getSTChat() };
     };
-    
+
     // ===== TavernHelper 代理注入 (适配回响等模板的世界书访问) =====
     // 检测是否存在 JS-Slash-Runner 扩展 (TavernHelper)
     try {
@@ -270,7 +282,7 @@ function injectDataIntoTemplate(html, rawMessage, fullChatData) {
     } catch(e) {
         console.log('[玉子市场] TavernHelper 不可用，跳过世界书 API 注入');
     }
-    
+
     console.log('[玉子市场] iframe 初始化完成');
 })();
 <\/script>
@@ -293,20 +305,7 @@ function injectDataIntoTemplate(html, rawMessage, fullChatData) {
 
 export function renderWithBeautifier($container, rawMessage, templateData) {
     try {
-        let html = templateData.html;
-
-        if (html.includes('$1')) {
-            // 第一步：对 <script type="text/plain"> 内的 $1 使用原始内容（textContent 读取，天然安全）
-            html = html.replace(
-                /(<script\b[^>]*type\s*=\s*["']text\/plain["'][^>]*>)([\s\S]*?)(<\/script>)/gi,
-                (match, openTag, inner, closeTag) => {
-                    return openTag + inner.replace(/\$1/g, rawMessage || '') + closeTag;
-                }
-            );
-            // 第二步：对剩余位置的 $1 进行 HTML 转义，防止 XSS 攻击
-            const escapedRawMessage = escapeHtml(rawMessage || '');
-            html = html.replace(/\$1/g, escapedRawMessage);
-        }
+        let html = replaceBeautifierPlaceholders(templateData.html, rawMessage);
 
         const fullChatData = extractAllChatData();
         html = injectDataIntoTemplate(html, rawMessage, fullChatData);

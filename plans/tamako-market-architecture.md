@@ -7,17 +7,17 @@
 ### 1.1 已确认事实
 
 - 扩展通过 [`manifest.json`](manifest.json:1) 声明加载入口 [`index.js`](index.js:1) 和样式 [`style.css`](style.css:1)。
-- 当前扩展版本在 [`manifest.json`](manifest.json:9)、[`index.js`](index.js:4)、[`extensionVersion`](modules/constants.js:8) 中均为 2.9.2。
+- 当前扩展版本在 [`manifest.json`](manifest.json:9)、[`index.js`](index.js:4)、[`extensionVersion`](modules/constants.js:8) 中均为 2.10.0。
 - 运行时入口由 [`index.js`](index.js:166) 在页面就绪后初始化窗口、按钮、设置面板和运行时控制器。
 - 剧情捕获数据保存在内存态 [`capturedPlots`](modules/state.js:50)，不是单独持久化库存。
 - 用户设置通过 SillyTavern 扩展设置容器读取和写入，核心入口是 [`ensureSettings()`](modules/settings.js:223)、[`getSettings()`](modules/settings.js:238)、[`saveSetting()`](modules/settings.js:270)。
-- 自动捕获同时依赖 SillyTavern 事件源和 DOM 观察，主控在 [`createRuntimeController()`](modules/runtime.js:52)。
+- 自动捕获同时依赖 SillyTavern 事件源和 DOM 观察，主控在 [`createRuntimeController()`](modules/runtime.js:51)。
 - 当前测试主要覆盖纯逻辑模块，不覆盖真实 DOM、真实 SillyTavern 事件源、窗口拖拽、美化器 iframe 和主题编辑器交互。
 
 ### 1.2 未确认事项
 
 - 没有在真实 SillyTavern 页面里执行交互验证；本文档基于静态代码审查。
-- 没有执行测试脚本；测试覆盖范围来自读取 [`tests/capture-core.test.js`](tests/capture-core.test.js:1)、[`tests/beautifier-cache.test.js`](tests/beautifier-cache.test.js:1)、[`tests/settings-template-core.test.js`](tests/settings-template-core.test.js:1)、[`tests/toggle-visibility-core.test.js`](tests/toggle-visibility-core.test.js:1)、[`tests/version-info-core.test.js`](tests/version-info-core.test.js:1)。
+- 已执行 `npm test`：80/80 通过（0 fail）。测试覆盖来源解析、捕获对账、事件 payload、运行时晚写与销毁、美化器数据边界、Markdown 渲染安全契约、捕获标签设置及既有模板、按钮与版本逻辑。
 - 没有逐行审查 [`style.css`](style.css:1) 的所有样式规则；本文只把它作为动态 DOM 的样式承载层记录。
 
 ## 2. 一眼看懂扩展
@@ -27,14 +27,14 @@
 - 用悬浮按钮和悬浮窗展示被捕获的剧情推进片段。
 - 从用户消息中提取指定 XML 风格标签，例如默认设置里的 recall 和 scene_direction，默认值来自 [`defaultSettings`](modules/constants.js:155)。
 - 将捕获结果展示在今日特选和库存两个页签中，窗口结构由 [`createWindow()`](modules/window.js:33) 动态插入。
-- 支持模板美化器，模板解析入口是 [`parseBeautifierTemplate()`](modules/beautifier.js:22)，渲染入口是 [`renderWithBeautifier()`](modules/beautifier.js:294)。
+- 支持模板美化器，模板解析入口是 [`parseBeautifierTemplate()`](modules/beautifier.js:23)，渲染入口是 [`renderWithBeautifier()`](modules/beautifier.js:306)。
 - 支持自定义主题和悬浮按钮样式，主题落地入口是 [`applyTheme()`](modules/theme-application.js:6)。
 - 支持 Quick Reply 调用的 Slash Command，注册逻辑在 [`registerTamakoSlashCommands()`](index.js:73)。
 
 简化层级如下：
 
 1. 扩展装载层：[`manifest.json`](manifest.json:1) → [`index.js`](index.js:1)。
-2. 生命周期层：[`createRuntimeController()`](modules/runtime.js:52)、[`destroy()`](index.js:200)。
+2. 生命周期层：[`createRuntimeController()`](modules/runtime.js:51)、[`destroy()`](index.js:200)。
 3. 状态与设置层：[`state.js`](modules/state.js:1)、[`settings.js`](modules/settings.js:1)、[`constants.js`](modules/constants.js:1)。
 4. 捕获层：[`capture-core.js`](modules/capture-core.js:1)、[`capture.js`](modules/capture.js:1)。
 5. 展示层：[`window.js`](modules/window.js:1)、[`window-content.js`](modules/window-content.js:1)、[`window-history.js`](modules/window-history.js:1)、[`toggle.js`](modules/toggle.js:1)。
@@ -61,7 +61,7 @@
 4. 调用 [`createToggleButton()`](modules/toggle.js:25) 创建悬浮按钮。
 5. 调用 [`applyToggleButtonVisibility()`](modules/toggle.js:57) 按设置决定按钮可见性。
 6. 通过 [`scheduleSettingsPanelCreation()`](index.js:133) 延迟创建设置面板，实际渲染入口是 [`createSettingsPanel()`](modules/settings-panel.js:17)。
-7. 创建并启动 [`createRuntimeController()`](modules/runtime.js:52)。
+7. 创建并启动 [`createRuntimeController()`](modules/runtime.js:51)。
 
 ### 3.3 Slash Command 链路
 
@@ -83,64 +83,58 @@
 - 释放美化器 iframe 的 Blob URL，见 [`destroy()`](index.js:221)。
 - 移除窗口、按钮和设置面板 DOM。
 
-注意：大量 jQuery 事件绑定依附于被移除 DOM，自身没有全部进入 [`EventListenerManager`](modules/events.js:56)。这不是马上坏，但后续若允许重复创建局部 DOM，就不能只靠 DOM 移除自我安慰。
+注意：大量 jQuery 事件绑定依附于被移除 DOM，自身没有全部进入 [`EventListenerManager`](modules/events.js:96)。这不是马上坏，但后续若允许重复创建局部 DOM，就不能只靠 DOM 移除自我安慰。
 
 ## 4. 运行时事件架构
 
 ### 4.1 事件源与 DOM 观察
 
-[`createRuntimeController()`](modules/runtime.js:52) 同时使用两类触发源：
+[`createRuntimeController()`](modules/runtime.js:51) 同时使用事件源、DOM 观察和初始扫描：
 
 | 触发源 | 入口 | 用途 |
 |---|---|---|
-| SillyTavern 事件源 | [`registerEventListeners()`](modules/runtime.js:184) | 监听聊天切换、消息发送、用户消息渲染、生成开始、生成结束、消息删除、消息更新、消息滑动。 |
-| DOM 观察 | [`setupMutationObserver()`](modules/runtime.js:82) | 监听聊天 DOM 中消息节点新增和删除，作为事件源之外的补充触发。 |
-| 初始扫描 | [`scheduleInitialScan()`](modules/runtime.js:169) | 页面加载后延迟扫描已有聊天。 |
+| SillyTavern 事件源 | [`registerEventListeners()`](modules/runtime.js) | 监听聊天切换、消息发送、用户消息渲染、生成开始/结束、消息删除、消息更新和消息滑动。 |
+| DOM 观察 | [`setupMutationObserver()`](modules/runtime.js) | 仅把消息节点新增/删除视为补偿信号，不从 DOM 顺序推断聊天索引。 |
+| 初始扫描 | [`scheduleInitialScan()`](modules/runtime.js) | 页面加载后延迟执行规范范围重建。 |
 
-事件常量定义在 [`EventTypes`](modules/events.js:13)，兼容别名定义在 [`EventAliases`](modules/events.js:41)。注册和清理统一由 [`EventListenerManager`](modules/events.js:56) 管理。
+事件常量定义在 [`EventTypes`](modules/events.js:13)，兼容别名定义在 [`EventAliases`](modules/events.js:41)。[`resolveMessageEventIndex()`](modules/events.js:70) 只接受安全整数、数字字符串、白名单索引字段或当前 chat 中可唯一定位的消息对象；无法定位时回退范围重建。注册器记录实际成功注册的别名，销毁按同一集合注销。
 
 ### 4.2 运行时触发流
 
 | 场景 | 运行时处理 | 捕获层入口 | UI 回调 |
 |---|---|---|---|
-| 聊天切换 | [`onChatChanged`](modules/runtime.js:200) 清空 [`capturedPlots`](modules/state.js:50)，延迟扫描 | [`scanAllMessages()`](modules/capture.js:160) | [`updateCurrentContent()`](modules/window.js:422)、[`updateHistoryList()`](modules/window.js:426) |
-| 用户消息发送 | [`EventTypes.MESSAGE_SENT`](modules/events.js:15) 延迟处理 | [`handleUserMessage()`](modules/capture.js:70) | 更新当前内容、库存列表、新货提示 |
-| 用户消息渲染 | [`EventTypes.USER_MESSAGE_RENDERED`](modules/events.js:17) 延迟处理 | [`handleUserMessage()`](modules/capture.js:70) | 同上 |
-| 生成开始或结束 | [`EventTypes.GENERATION_STARTED`](modules/events.js:24)、[`EventTypes.GENERATION_ENDED`](modules/events.js:26) | [`checkLatestUserMessage()`](modules/capture.js:132) | 只检查最新用户消息 |
-| 消息删除或更新 | [`validateEvents`](modules/runtime.js:236) | [`validateCapturedPlots()`](modules/capture.js:246) | 重提取并同步 UI |
-| DOM 新增消息节点 | [`MutationObserver`](modules/runtime.js:95) 识别新增 | [`checkLatestUserMessage()`](modules/capture.js:132) | 同上 |
-| DOM 移除消息节点 | [`MutationObserver`](modules/runtime.js:95) 识别删除 | [`validateCapturedPlots()`](modules/capture.js:246) | 同上 |
+| 聊天切换 | 每次信号先增加 `chatGeneration` 并取消旧任务；短窗只合并重复 UI 清空，800ms 后扫描最后的当前聊天 | [`scanAllMessages()`](modules/capture.js:176) | 清空当前内容/库存，再以新聊天事实刷新 |
+| 发送或用户楼渲染 | 解析可靠索引后延迟单消息对账，并启动 `[250, 500, 1000]` 有界 qrf 晚写重试 | [`reconcileUserMessage()`](modules/capture.js:95) | 新增才提示新货；来源升级原位更新 |
+| 消息更新或滑动 | 可靠索引走单消息对账；未知 payload 走范围重建。滑动事件不读取 swipe 数据 | `reconcileUserMessage()` / `scanAllMessages()` | 同步当前内容和库存 |
+| 消息删除、DOM 批量或移除 | 不信任旧索引，调度规范范围重建 | [`scanAllMessages()`](modules/capture.js:176) | 删除失效记录并修正索引漂移 |
+| 生成开始或结束 | 延迟执行规范范围重建 | [`scanAllMessages()`](modules/capture.js:176) | 以当前 chat 事实刷新 |
 
 ### 4.3 防抖与清理
 
-- 聊天切换去重窗口由 [`CHAT_CHANGE_DEBOUNCE_MS`](modules/runtime.js:24) 控制。
-- DOM 新增和删除分别使用 [`ADD_DEBOUNCE_MS`](modules/runtime.js:26)、[`REMOVE_DEBOUNCE_MS`](modules/runtime.js:27)。
-- 捕获校验还有一层 [`validateDebounceTimer`](modules/state.js:90)，由 [`validateCapturedPlots()`](modules/capture.js:246) 使用。
-- 销毁时 [`destroy()`](modules/runtime.js:264) 会清理运行时计时器，并调用 [`cleanupAllResources()`](modules/state.js:287)。
+- `schedule()` 将任务绑定到创建时的 `chatGeneration`；代次变化或 `destroy()` 后回调直接失效。
+- qrf 晚写任务按 `(chatGeneration, messageIndex)` 隔离，发现有效 qrf、达到上限、索引失效、切换聊天或销毁时终止。
+- 重试耗尽后的静默 qrf 写入不承诺自动最终一致；后续明确事件、手动扫描或聊天切换会恢复。
+- `forceScan()`、事件回调、Observer 回调和扫描入口均检查 controller 是否仍处于 active 状态。
+- 销毁时清理控制器计时器、事件别名监听和 MutationObserver；销毁后推进旧 timer 不再读取 context 或写 UI。
 
 ## 5. 剧情捕获链路
 
-### 5.1 捕获门槛
+### 5.1 权威来源与捕获门槛
 
-核心纯逻辑在 [`extractPlotContent()`](modules/capture-core.js:84)：
+唯一来源解析在 [`resolveUserMessageSource()`](modules/message-source-core.js:9)：
 
-1. 消息为空时拒绝。
-2. 扩展禁用时拒绝。
-3. 自动捕获关闭时拒绝。
-4. 捕获标签列表为空时拒绝。
-5. 消息必须命中关键词门槛，关键词定义在 [`KEYWORD_PATTERNS`](modules/capture-core.js:16)。
-6. 按 [`captureTags`](modules/constants.js:162) 提取标签内容。
+1. 只处理 `message.is_user === true` 的用户楼。
+2. 非空顶层 `message.qrf_plot` 是权威来源，并保留未 trim 的原始字符串。
+3. 只有 qrf 无效时才使用非空顶层 `message.mes`。
+4. 不读取 `extra`、`swipes` 或 swipe 内部字段。
 
-这意味着：不是所有带 recall 或 scene_direction 的消息都会捕获，必须同时有用户输入提示关键词。后续 AI 如果只看标签规则就改捕获行为，漏洞明显得像是故意写给事故看的。
+[`extractPlotContent()`](modules/capture-core.js) 对 qrf 绕过 [`KEYWORD_PATTERNS`](modules/capture-core.js)，对 mes 保留关键词门槛。有效 qrf 即使没有目标标签也直接返回空结果，不得回退 mes。
 
 ### 5.2 标签提取
 
-- 标签正则缓存由 [`tagRegexCache`](modules/capture-core.js:9) 保存。
-- 正则生成入口是 [`getTagRegex()`](modules/capture-core.js:30)。
-- 实际提取入口是 [`extractTagContent()`](modules/capture-core.js:59)。
-- 提取结果保留完整标签文本，而不是只取标签内部文本，见 [`matches.push(match[0])`](modules/capture-core.js:67)。
-
-风险：用户输入的标签名没有进行正则转义，正则构建在 [`getTagRegex()`](modules/capture-core.js:34)。如果设置面板允许异常标签进入 [`captureTags`](modules/settings-panel.js:291)，可能导致正则异常或非预期匹配。
+- [`normalizeCaptureTags()`](modules/capture-core.js) trim、去重并限制合法标签名。
+- [`extractTagContent()`](modules/capture-core.js) 使用转义后的标签名和闭合边界，避免前缀标签误匹配。
+- 提取结果继续保留完整 `<tag>...</tag>`，而不是只保存标签正文。
 
 ### 5.3 捕获状态模型
 
@@ -148,21 +142,22 @@
 
 | 字段 | 来源 | 说明 |
 |---|---|---|
-| content | [`extractPlotContent()`](modules/capture-core.js:84) | 拼接后的标签内容。 |
-| rawMessage | [`extractPlotContent()`](modules/capture-core.js:84) | 原始用户消息，用于美化器模板。 |
-| timestamp | [`handleUserMessage()`](modules/capture.js:94) 或 [`scanAllMessages()`](modules/capture.js:195) | 捕获时间或扫描估算时间。 |
-| messageIndex | [`handleUserMessage()`](modules/capture.js:70) | SillyTavern 聊天数组中的消息索引。 |
+| content | [`extractPlotContent()`](modules/capture-core.js:116) | 拼接后的标签内容。 |
+| rawMessage | [`extractPlotContent()`](modules/capture-core.js) | 实际选中的 qrf 或 mes 原始全文。 |
+| sourceKind | [`resolveUserMessageSource()`](modules/message-source-core.js:9) | 诊断来源为 `qrf_plot` 或 `mes`。 |
+| timestamp | [`reconcileUserMessage()`](modules/capture.js:95) 或 [`scanAllMessages()`](modules/capture.js:176) | 新增/变化时记录；范围重建时仅对同索引且内容来源完全一致的记录沿用。 |
+| messageIndex | 捕获入口 | 当前聊天数组位置，不是稳定消息身份。 |
 
 重要边界：[`capturedPlots`](modules/state.js:50) 是内存状态。刷新页面、切换聊天、销毁扩展后，不应假设库存仍存在。
 
-### 5.4 捕获入口差异
+### 5.4 对账与范围重建
 
 | 入口 | 行为 | 适用场景 |
 |---|---|---|
-| [`handleUserMessage()`](modules/capture.js:70) | 处理指定消息索引，跳过非用户消息和已捕获索引。 | 事件源给出明确消息索引时。 |
-| [`checkLatestUserMessage()`](modules/capture.js:132) | 从后向前找最新用户消息，只处理一条。 | DOM 新增、生成开始、生成结束等不稳定触发。 |
-| [`scanAllMessages()`](modules/capture.js:160) | 从后向前扫描，受最大扫描数限制。 | 初始扫描、手动扫描、聊天切换。 |
-| [`validateCapturedPlots()`](modules/capture.js:246) | 防抖后重提取已有记录，剔除已删或不再匹配项。 | 消息删除、消息更新、消息滑动。 |
+| [`reconcileUserMessage()`](modules/capture.js:95) | 单条新增、原位更新或删除；mes→qrf 不重复触发新货。 | 事件能可靠定位当前 chat 索引时。 |
+| [`scanAllMessages()`](modules/capture.js:176) | 在扫描范围内从当前 chat 规范重建，不复制历史残留。 | 初始/手动扫描、聊天切换、删除、未知目标、DOM 结构变化。 |
+| [`handleUserMessage()`](modules/capture.js:143) | 兼容包装，委派给单条对账。 | 旧调用方兼容。 |
+| [`validateCapturedPlots()`](modules/capture.js:245) | 防抖后委派范围重建。 | 保留旧验证入口兼容。 |
 
 ## 6. 悬浮窗展示链路
 
@@ -189,13 +184,18 @@
 
 ### 6.3 当前内容渲染
 
-当前内容更新从 [`updateCurrentContent()`](modules/window-content.js:50) 开始：
+当前内容更新从 [`updateCurrentContent()`](modules/window-content.js:110) 开始：
 
-1. 无内容时渲染空态，入口是 [`renderEmptyState()`](modules/window-content.js:23)。
-2. 美化器启用且有活动模板时，走 [`renderWithBeautifier()`](modules/beautifier.js:294)。
-3. 否则走 [`renderPlainText()`](modules/window-content.js:33)。
+1. 无内容时渲染空态并释放旧 iframe Blob URL。
+2. 美化器启用且活动模板渲染成功时，保留 iframe 短路路径。
+3. 否则走 [`renderMarkdown()`](modules/window-content.js:70)。
 
-风险：[`renderPlainText()`](modules/window-content.js:33) 里的 HTML 转义是无效实现，相关替换在 [`window-content.js`](modules/window-content.js:38) 到 [`window-content.js`](modules/window-content.js:41)。这会让原始捕获内容以 HTML 方式进入 [`$content.html()`](modules/window-content.js:47)。这是明确的 XSS 风险，不能写成安全纯文本回退。
+普通路径的顺序是：
+
+- [`parseCapturedSections()`](modules/markdown-render-core.js:11) 只接受可完整拆分的捕获 section；
+- [`dedentMarkdown()`](modules/markdown-render-core.js:49) 移除公共前导缩进；
+- 独立 Showdown converter 转换 Markdown，随后由 `DOMPurify.sanitize()` 净化再写入 DOM；
+- 每张 table 单独包装为 `.tamako-table-scroll`；任一步失败则通过 `textContent` 安全显示原文。
 
 ### 6.4 库存列表与删除模式
 
@@ -203,7 +203,7 @@
 - 删除模式入口是 [`toggleDeleteMode()`](modules/window-history.js:27)。
 - 批量删除入口是 [`deleteSelectedItems()`](modules/window-history.js:45)。
 - 历史列表渲染入口是 [`updateHistoryList()`](modules/window-history.js:76)。
-- 搜索过滤复用 [`filterPlots()`](modules/capture-core.js:137)。
+- 搜索过滤复用 [`filterPlots()`](modules/capture-core.js:173)。
 
 删除只是删除内存态 [`capturedPlots`](modules/state.js:50) 中的记录，不会修改 SillyTavern 原始聊天消息。
 
@@ -270,29 +270,31 @@
 
 ### 8.2 模板解析与缓存
 
-- 解析入口是 [`parseBeautifierTemplate()`](modules/beautifier.js:22)。
+- 解析入口是 [`parseBeautifierTemplate()`](modules/beautifier.js:23)。
 - 解析支持包含 replaceString 的 JSON，也支持直接 HTML。
-- 当前活动模板入口是 [`getActiveTemplateData()`](modules/beautifier.js:99)。
+- 当前活动模板入口是 [`getActiveTemplateData()`](modules/beautifier.js:100)。
 - 模板缓存状态在 [`cachedTemplate`](modules/state.js:79)、[`cachedTemplateSource`](modules/state.js:82)、[`cachedTemplateId`](modules/state.js:85)。
 - 聊天数据缓存签名由 [`buildChatDataSignature()`](modules/beautifier-cache.js:44) 生成。
 
 ### 8.3 美化器渲染
 
-[`renderWithBeautifier()`](modules/beautifier.js:294) 的关键步骤：
+[`renderWithBeautifier()`](modules/beautifier.js) 的关键步骤：
 
-1. 将模板中的占位符替换为原始消息或转义后的原始消息，见 [`beautifier.js`](modules/beautifier.js:298) 到 [`beautifier.js`](modules/beautifier.js:308)。
-2. 通过 [`extractAllChatData()`](modules/beautifier.js:107) 提供聊天数据和标签数据。
-3. 通过 [`injectDataIntoTemplate()`](modules/beautifier.js:211) 注入可供模板使用的数据读取函数。
-4. 创建或复用 iframe，并用 Blob URL 加载渲染后的 HTML，见 [`renderWithBeautifier()`](modules/beautifier.js:324) 到 [`renderWithBeautifier()`](modules/beautifier.js:379)。
-5. iframe 加载超时由 [`beautifierLoadTimeout`](modules/state.js:93) 管理。
+1. [`replaceBeautifierPlaceholders()`](modules/beautifier.js:213) 单次替换 `$1`：普通 HTML 位置保守结构编码，`script[type="text/plain"]` 数据块编码闭合 script 序列，替换结果不会递归展开原文中的 `$1`。
+2. [`extractAllChatData()`](modules/beautifier.js:108) 只投影用户楼的权威来源，并基于 `sourceKind + content` 建立缓存签名。
+3. [`injectDataIntoTemplate()`](modules/beautifier.js) 通过 `window.name` 注入 `TAMAKO_INJECTED_RAW`、受控 chat 和标签数据。
+4. 创建或复用 iframe，并用 Blob URL 加载渲染后的 HTML。
+5. iframe 加载超时由 [`beautifierLoadTimeout`](modules/state.js) 管理。
 
 ### 8.4 美化器安全边界
 
 这是高风险区域，别把“兼容模板”误写成“安全沙箱”。
 
-- iframe 使用 [`sandbox="allow-scripts allow-same-origin"`](modules/beautifier.js:332)。这允许模板执行脚本，并为访问父页面能力打开了边界。
-- 注入脚本显式尝试访问父级 SillyTavern 上下文，见 [`window.parent.SillyTavern`](modules/beautifier.js:232)。
-- 注入脚本也会代理 TavernHelper 能力，见 [`TavernHelper`](modules/beautifier.js:247)。
+- iframe 使用 `sandbox="allow-scripts allow-same-origin"`，模板本身仍是可执行的可信代码。
+- `window.getSTChat()` 只返回 [`projectUserMessage()`](modules/message-source-core.js:39) 生成的用户楼投影，不再回退 `window.parent.SillyTavern.getContext().chat`。
+- 投影只含 `is_user`、`sourceKind`、`content`、`mes`、`qrf_plot`，不含助手楼、`extra`、`swipes` 或原始消息引用。
+- `TAMAKO_INJECTED_RAW` 提供实际选中来源的精确原文；普通 `$1` 只用于安全显示，模板不得把它放入 `href`、事件属性等执行语义槽位。
+- 注入脚本仍代理父窗口 `TavernHelper` 的世界书能力，这不是通用沙箱隔离。
 - 结论：模板应视为可信代码，不应加载不可信模板。后续如果要支持第三方模板市场，必须重做权限模型。
 
 ## 9. 主题编辑器与按钮系统
@@ -371,7 +373,7 @@
 | UI 模块直接读写全局状态 | [`window-history.js`](modules/window-history.js:10) 到 [`window-history.js`](modules/window-history.js:16) | 简单但容易让状态更新分散。 |
 | 设置面板能直接改变运行态 | [`setExtensionEnabledWithUI()`](modules/settings-panel.js:307) | 改启用逻辑时必须同步按钮、窗口和设置。 |
 | 模板设置模块直接调用窗口刷新 | [`settings-templates.js`](modules/settings-templates.js:6) | 模板管理和窗口展示存在耦合。 |
-| 美化器 iframe 为兼容模板访问父级能力 | [`window.parent.SillyTavern`](modules/beautifier.js:232) | 安全边界弱，模板必须可信。 |
+| 美化器 iframe 代理父级 TavernHelper 能力 | [`window.parent.TavernHelper`](modules/beautifier.js) | 安全边界弱，模板必须可信；聊天数据仍只能走受控投影。 |
 | 主题编辑使用可变临时对象 | [`tempCustomTheme`](modules/state.js:74) | 浅层误改可能直接影响预览和保存结果。 |
 
 这些耦合不是立刻要拆，但后续 AI 修改时必须知道它们存在。看不到耦合还敢改，等于在闭眼拆炸弹。
@@ -380,14 +382,14 @@
 
 | 风险 | 证据 | 后果 | 建议 |
 |---|---|---|---|
-| 纯文本回退 XSS | [`renderPlainText()`](modules/window-content.js:33) 中替换无效，最终进入 [`$content.html()`](modules/window-content.js:47) | 捕获内容包含 HTML 或脚本时可能被执行。 | 使用真实 HTML 转义或 DOM textContent 渲染，再安全处理换行和高亮。 |
-| 标签名未正则转义 | [`getTagRegex()`](modules/capture-core.js:30) 直接拼接标签名 | 自定义标签含特殊字符会报错或非预期匹配。 | 对标签名做正则转义，并限制合法标签名字符集。 |
-| 美化器沙箱边界弱 | [`sandbox="allow-scripts allow-same-origin"`](modules/beautifier.js:332)，且访问 [`window.parent.SillyTavern`](modules/beautifier.js:232) | 不可信模板可接触宿主上下文。 | 文档明确只允许可信模板；若要支持不可信模板，需要移除父级访问能力并设计通信协议。 |
+| 真实浏览器 Markdown/XSS 尚未手工验收 | 自动化只锁定纯逻辑和源码契约，未运行目标宿主 DOMPurify/CSP | 浏览器或宿主差异可能破坏净化、iframe 或布局假设。 | 发布前执行 XSS payload、窄窗口、移动端和 iframe 手工矩阵。 |
+| 保守 section parser 不支持同名嵌套 | [`parseCapturedSections()`](modules/markdown-render-core.js:11) 遇歧义安全降级 | 复杂 XML 结构不会渲染为 Markdown，而是显示原文。 | 保持文档边界；除非重新设计，不扩成完整 XML parser。 |
+| 美化器沙箱边界弱 | `sandbox="allow-scripts allow-same-origin"` 且代理 `window.parent.TavernHelper` | 不可信模板可执行脚本并接触受代理能力。 | 只加载可信模板；若支持第三方模板市场，需重做权限模型和通信协议。 |
 | 库存非持久化 | [`capturedPlots`](modules/state.js:50) 仅为内存数组 | 用户误以为库存跨会话保存会产生数据预期错误。 | 用户文档和维护文档都必须明确库存是当前运行会话内状态。 |
-| DOM 交互缺少自动化测试 | 测试集中在 [`tests`](tests) 下纯逻辑文件 | 拖拽、窗口、设置面板、美化器回归风险高。 | 后续引入 DOM 测试或浏览器端冒烟检查。 |
+| DOM 自动化覆盖受限 | [`tests/window-content-contract.test.js`](tests/window-content-contract.test.js) 是源码契约测试，不执行真实 DOM | 可防调用顺序回归，但不能证明浏览器执行安全。 | 后续引入受控 DOM 测试或浏览器端冒烟检查。 |
 | 版本历史不完整 | [`versionHistory`](modules/constants.js:11) 只包含当前少量版本 | 远端版本跨度较大时，版本说明可能缺条目。 | 发布时同步维护版本历史数组。 |
 | 图片按钮存入设置可能膨胀 | [`buttonImage`](modules/constants.js:210) 保存 base64 | 大图可能让扩展设置体积过大。 | 限制图片尺寸或压缩后保存。 |
-| 事件与 DOM 双触发可能重复 | [`registerEventListeners()`](modules/runtime.js:184) 和 [`setupMutationObserver()`](modules/runtime.js:82) 同时存在 | 极端情况下重复触发捕获检查。 | 保持消息索引去重，改触发逻辑时先验证重复路径。 |
+| 事件与 DOM 双触发可能重复 | [`registerEventListeners()`](modules/runtime.js:356) 和 [`setupMutationObserver()`](modules/runtime.js:251) 同时存在 | 极端情况下重复触发捕获检查。 | 保持消息索引去重，改触发逻辑时先验证重复路径。 |
 
 ## 13. 测试现状与补测建议
 
@@ -395,36 +397,35 @@
 
 | 测试文件 | 覆盖对象 | 价值 |
 |---|---|---|
-| [`tests/capture-core.test.js`](tests/capture-core.test.js:1) | [`capture-core.js`](modules/capture-core.js:1) | 覆盖标签提取、关键词门槛、AM 编号和过滤。 |
-| [`tests/beautifier-cache.test.js`](tests/beautifier-cache.test.js:1) | [`beautifier-cache.js`](modules/beautifier-cache.js:1) | 覆盖聊天签名变化。 |
-| [`tests/settings-template-core.test.js`](tests/settings-template-core.test.js:1) | [`settings-template-core.js`](modules/settings-template-core.js:1) | 覆盖模板扩展名、选择、删除、重命名。 |
-| [`tests/toggle-visibility-core.test.js`](tests/toggle-visibility-core.test.js:1) | [`toggle-visibility-core.js`](modules/toggle-visibility-core.js:1) | 覆盖按钮可见性规则。 |
-| [`tests/version-info-core.test.js`](tests/version-info-core.test.js:1) | [`version-info-core.js`](modules/version-info-core.js:1) | 覆盖版本比较和累计更新说明。 |
+| `message-source-core` / `capture-core` / `capture-reconcile` | 来源权威、关键词分流、禁读 getter、单条对账、范围重建 | 锁定 qrf 优先、无标签不回退、mes→qrf 与索引漂移。 |
+| `events` / `runtime` | payload、别名、晚写重试、代次、destroy、未知目标 | 验证时序和生命周期，不靠真实秒级等待。 |
+| `beautifier-source` / `beautifier-cache` | 受控投影、标签聚合、缓存签名、占位符编码 | 禁止父 chat 回退、extra/swipes 读取和 script raw-text 逃逸。 |
+| `markdown-render-core` / `window-content-contract` | section、dedent、安全调用顺序、文本降级、table wrapper | 锁定纯逻辑与源码契约；不冒充真实浏览器 DOM 验收。 |
+| `settings-capture-tags` 及既有测试 | 默认标签、用户自定义、模板、按钮、版本信息 | 防止设置迁移和既有功能回归。 |
 
 测试脚本声明在 [`package.json`](package.json:5)。
 
-### 13.2 缺失测试
+### 13.2 尚需宿主验证
 
-优先补这些，别把 UI 代码当不会坏的装饰品：
+自动化已覆盖本次核心契约，但以下内容仍必须在真实 SillyTavern 中验证：
 
-1. [`window-content.js`](modules/window-content.js:1)：纯文本回退的真实转义、高亮组合、空态资源释放。
-2. [`settings.js`](modules/settings.js:1)：旧配置迁移、异常类型规范化、模板旧字段迁移。
-3. [`capture-core.js`](modules/capture-core.js:1)：自定义标签名特殊字符、标签属性、大小写、反引号边界。
-4. [`runtime.js`](modules/runtime.js:1)：事件触发去重和聊天切换扫描逻辑，可通过 mock 事件源测试。
-5. [`beautifier.js`](modules/beautifier.js:1)：模板解析、占位符替换、Blob URL 释放、聊天数据缓存失效。
-6. [`toggle.js`](modules/toggle.js:1)：按钮可见性和隐藏按钮下 Slash Command 打开窗口行为。
+1. 目标版本事件源的实际 payload 与别名触发顺序。
+2. Showdown、DOMPurify、Blob iframe 和 CSP 的真实运行行为。
+3. 280px/移动端宽度、宽表、长 URL、图片和代码块布局。
+4. 扩展 destroy/reload 后无重复监听、残留 timer 或旧聊天污染。
+5. 拖拽、窗口、设置面板及模板测试等计划外 UI 交互回归。
 
 ## 14. 常见修改入口指南
 
 | 目标 | 必改位置 | 易漏点 |
 |---|---|---|
 | 新增默认捕获标签 | [`defaultSettings`](modules/constants.js:155) | 只改设置面板占位符无效；捕获核心读取的是规范化后的设置。 |
-| 改捕获判定规则 | [`extractPlotContent()`](modules/capture-core.js:84) | 同步更新 [`tests/capture-core.test.js`](tests/capture-core.test.js:1)。 |
+| 改捕获判定规则 | [`extractPlotContent()`](modules/capture-core.js:116) | 同步更新 [`tests/capture-core.test.js`](tests/capture-core.test.js:1)。 |
 | 新增设置项 | [`defaultSettings`](modules/constants.js:155)、[`normalizeSettingsShape()`](modules/settings.js:164)、[`createSettingsPanel()`](modules/settings-panel.js:17) | 必须保证旧用户配置迁移后仍有默认值。 |
 | 改窗口按钮 | [`createWindow()`](modules/window.js:33)、[`bindWindowEvents()`](modules/window.js:300)、[`style.css`](style.css:1) | 新按钮要考虑窗口关闭、主题编辑器、删除模式之间的状态冲突。 |
 | 改历史库存 | [`window-history.js`](modules/window-history.js:1)、[`capture.js`](modules/capture.js:1) | 删除库存不等于删除聊天消息。 |
-| 改美化器模板格式 | [`parseBeautifierTemplate()`](modules/beautifier.js:22)、[`validateTemplate()`](modules/beautifier.js:88)、[`settings-templates.js`](modules/settings-templates.js:1) | 注意缓存失效和旧模板兼容。 |
-| 改 iframe 能力 | [`injectDataIntoTemplate()`](modules/beautifier.js:211)、[`renderWithBeautifier()`](modules/beautifier.js:294) | 安全边界会被影响，不能只看模板能不能跑。 |
+| 改美化器模板格式 | [`parseBeautifierTemplate()`](modules/beautifier.js:23)、[`validateTemplate()`](modules/beautifier.js:89)、[`settings-templates.js`](modules/settings-templates.js:1) | 注意缓存失效和旧模板兼容。 |
+| 改 iframe 能力 | [`injectDataIntoTemplate()`](modules/beautifier.js:232)、[`renderWithBeautifier()`](modules/beautifier.js:306) | 安全边界会被影响，不能只看模板能不能跑。 |
 | 改主题颜色或字体 | [`defaultCustomTheme`](modules/constants.js:193)、[`applyThemeStyles()`](modules/utils.js:163)、[`theme-editor-view.js`](modules/theme-editor-view.js:1) | 预览态和保存态要一致。 |
 | 改悬浮按钮外观 | [`applyButtonStyles()`](modules/utils.js:202)、[`theme-button-editor.js`](modules/theme-button-editor.js:1)、[`toggle.js`](modules/toggle.js:1) | 自定义图片、圆形、长条三种路径都要验证。 |
 | 改版本提醒 | [`version-info-core.js`](modules/version-info-core.js:1)、[`settings-panel.js`](modules/settings-panel.js:138)、[`versionHistory`](modules/constants.js:11) | 远端版本缓存和本地版本比较要一起看。 |
@@ -434,7 +435,7 @@
 1. 改代码前先读目标模块和直接调用方。只看一个文件就下结论，助手，那不是分析，是赌博。
 2. 设置项只通过 [`saveSetting()`](modules/settings.js:270)、[`updateSettings()`](modules/settings.js:254)、[`updateBeautifierSettings()`](modules/settings.js:276) 这类入口修改，不要绕过规范化层。
 3. 捕获数据更新必须通过 [`setCapturedPlots()`](modules/state.js:148)，并同步触发窗口内容和历史列表刷新。
-4. 事件监听优先进入 [`EventListenerManager`](modules/events.js:56)，否则销毁路径可能漏清理。
+4. 事件监听优先进入 [`EventListenerManager`](modules/events.js:96)，否则销毁路径可能漏清理。
 5. 纯逻辑能抽就抽到类似 [`capture-core.js`](modules/capture-core.js:1) 或 [`settings-template-core.js`](modules/settings-template-core.js:1) 的模块，并补测试。
 6. 改美化器必须同时考虑模板兼容、安全边界、Blob URL 释放和 iframe 加载超时。
 7. 改主题编辑器必须区分临时预览态 [`tempCustomTheme`](modules/state.js:74) 和持久化设置 [`customTheme`](modules/constants.js:176)。
@@ -444,9 +445,9 @@
 
 这版架构不是不能维护。模块拆分已经比单文件扩展强很多，纯逻辑也有测试边界。但别高兴得太早，问题也很明确：
 
-- 展示层安全边界不够扎实，尤其是 [`renderPlainText()`](modules/window-content.js:33) 的转义问题。
-- 美化器为了兼容强模板能力牺牲了沙箱隔离，见 [`renderWithBeautifier()`](modules/beautifier.js:294)。
-- DOM 交互测试几乎为空，真正容易坏的地方没有回归保护。
+- 普通展示已经使用 Showdown、DOMPurify 和文本降级，但真实浏览器执行仍需宿主矩阵验证。
+- 美化器聊天数据已收敛到受控用户楼投影，但为兼容强模板能力仍保留脚本和 TavernHelper 代理。
+- runtime 生命周期已有 fake timer 回归保护，DOM/CSP/布局仍缺真实浏览器自动化。
 - 设置、窗口、美化器、主题之间仍有不少 UI 层耦合，后续大改必须先定边界。
 
-这份文档能作为维护接手入口，但还不是生产级质量报告。若要进一步变成重构方案，需要追加真实运行验证、样式审查、浏览器端交互测试和安全修复设计。
+这份文档可以作为当前实现的维护入口；在真实 SillyTavern 手工矩阵完成前，仍不能宣称发布验收闭环。

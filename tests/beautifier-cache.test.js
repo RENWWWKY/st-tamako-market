@@ -25,48 +25,49 @@ test('buildChatDataSignature 对空聊天返回固定签名', () => {
     assert.equal(buildChatDataSignature(null), 'empty');
 });
 
-test('buildChatDataSignature 在聊天长度变化时签名变化', () => {
+test('buildChatDataSignature 忽略助手楼变化', () => {
     const chatA = [{ is_user: true, mes: 'A' }];
     const chatB = [{ is_user: true, mes: 'A' }, { is_user: false, mes: 'B' }];
 
-    assert.notEqual(buildChatDataSignature(chatA), buildChatDataSignature(chatB));
+    assert.equal(buildChatDataSignature(chatA), buildChatDataSignature(chatB));
 });
 
 test('buildChatDataSignature 在消息内容变化时签名变化', () => {
-    const chatA = [{ is_user: true, mes: '剧情一', extra: { qrf_plot: 'plot-a' } }];
-    const chatB = [{ is_user: true, mes: '剧情二', extra: { qrf_plot: 'plot-a' } }];
+    const chatA = [{ is_user: true, mes: '剧情一' }];
+    const chatB = [{ is_user: true, mes: '剧情二' }];
 
     assert.notEqual(buildChatDataSignature(chatA), buildChatDataSignature(chatB));
 });
 
-test('buildChatDataSignature 在 swipe 内容变化时签名变化', () => {
+test('buildChatDataSignature 以有效 qrf_plot 为权威来源', () => {
     const chatA = [{
-        is_user: false,
-        mes: '固定消息',
-        swipes: ['swipe-a'],
+        is_user: true,
+        mes: '回退消息 A',
+        qrf_plot: '<plot>固定权威内容</plot>',
     }];
-
     const chatB = [{
-        is_user: false,
-        mes: '固定消息',
-        swipes: ['swipe-b'],
+        is_user: true,
+        mes: '回退消息 B',
+        qrf_plot: '<plot>固定权威内容</plot>',
     }];
 
-    assert.notEqual(buildChatDataSignature(chatA), buildChatDataSignature(chatB));
+    assert.equal(buildChatDataSignature(chatA), buildChatDataSignature(chatB));
 });
 
-test('buildChatDataSignature 支持 swipe.extra.qrf_plot 参与签名', () => {
-    const chatA = [{
-        is_user: false,
-        mes: '固定消息',
-        swipes: [{ extra: { qrf_plot: 'plot-a' } }],
-    }];
+test('buildChatDataSignature 不读取禁用字段 getter', () => {
+    const message = { is_user: true, mes: '固定消息' };
+    Object.defineProperty(message, 'extra', {
+        get() { throw new Error('不得读取 extra'); },
+    });
+    Object.defineProperty(message, 'swipes', {
+        get() { throw new Error('不得读取 swipes'); },
+    });
 
-    const chatB = [{
-        is_user: false,
-        mes: '固定消息',
-        swipes: [{ extra: { qrf_plot: 'plot-b' } }],
-    }];
+    assert.doesNotThrow(() => buildChatDataSignature([message]));
+});
 
-    assert.notEqual(buildChatDataSignature(chatA), buildChatDataSignature(chatB));
+test('buildChatDataSignature 在权威来源类型切换时签名变化', () => {
+    const mes = [{ is_user: true, mes: '<plot>相同文本</plot>' }];
+    const qrf = [{ is_user: true, mes: '回退', qrf_plot: '<plot>相同文本</plot>' }];
+    assert.notEqual(buildChatDataSignature(mes), buildChatDataSignature(qrf));
 });

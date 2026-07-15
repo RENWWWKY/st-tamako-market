@@ -6,6 +6,8 @@
  * 同时保持足够低的计算成本，避免缓存判断本身成为新热点。
  */
 
+import { projectUserMessage } from './message-source-core.js';
+
 const EMPTY_VALUE_SIGNATURE = '0:0';
 const EMPTY_CHAT_SIGNATURE = 'empty';
 
@@ -46,35 +48,17 @@ export function buildChatDataSignature(chat) {
         return EMPTY_CHAT_SIGNATURE;
     }
 
-    const parts = [String(chat.length)];
+    const parts = [];
 
     for (const msg of chat) {
-        if (!msg) {
-            parts.push('null');
-            continue;
-        }
-
-        const swipeSignatures = Array.isArray(msg.swipes)
-            ? msg.swipes.map(swipe => {
-                if (typeof swipe === 'string') {
-                    return buildValueSignature(swipe);
-                }
-                if (swipe?.extra?.qrf_plot) {
-                    return buildValueSignature(swipe.extra.qrf_plot);
-                }
-                return EMPTY_VALUE_SIGNATURE;
-            }).join(',')
-            : '';
+        const projected = projectUserMessage(msg);
+        if (!projected) continue;
 
         parts.push([
-            msg.is_user ? 'u' : 'a',
-            buildValueSignature(msg.mes),
-            buildValueSignature(msg.extra?.qrf_plot),
-            buildValueSignature(msg.qrf_plot),
-            Array.isArray(msg.swipes) ? msg.swipes.length : 0,
-            swipeSignatures,
+            projected.sourceKind,
+            buildValueSignature(projected.content),
         ].join('~'));
     }
 
-    return parts.join('|');
+    return parts.length ? parts.join('|') : EMPTY_CHAT_SIGNATURE;
 }

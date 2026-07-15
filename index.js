@@ -1,9 +1,10 @@
 // index.js
 /**
  * 玉子市场 - SillyTavern 悬浮窗扩展
- * @version 2.9.2
+ * @version 2.10.0
  *
  * 更新日志:
+ * - v2.10.0: 提升捕获对账可靠性，并加入安全 Markdown 渲染与美化器数据边界保护
  * - v2.9.2: 设置页新增 NEW 标记与当前版本说明弹窗
  * - v2.9.1: 新增 Quick Reply 配套 Slash Command，可通过 QR 打开/关闭窗口
  * - v2.9.1: 新增隐藏悬浮窗按钮设置，支持仅使用 QR 控制窗口
@@ -179,7 +180,7 @@ registerTamakoSlashCommands();
             }
             runtimeController.start();
             
-            console.log('[玉子市场] v2.9.2 - 版本说明提醒版');
+            console.log('[玉子市场] v2.10.0 - 捕获可靠性与安全渲染版');
         } catch (e) {
             console.error('[玉子市场] 初始化错误:', e);
         }

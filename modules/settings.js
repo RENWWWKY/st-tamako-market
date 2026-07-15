@@ -7,6 +7,7 @@
  */
 
 import { extensionName, defaultSettings, defaultCustomTheme } from './constants.js';
+import { normalizeCaptureTags } from './capture-core.js';
 
 const DEFAULT_THEME_NAME = 'night';
 const DEFAULT_TEMPLATE_NAME = '迁移的模板';
@@ -161,7 +162,7 @@ function normalizeBeautifierSettings(beautifier) {
     return normalized;
 }
 
-function normalizeSettingsShape(settings) {
+export function normalizeSettingsShape(settings) {
     const defaults = createDefaultSettings();
     const source = settings && typeof settings === 'object' ? settings : {};
 
@@ -172,7 +173,7 @@ function normalizeSettingsShape(settings) {
         windowWidth: normalizePositiveNumber(source.windowWidth, defaults.windowWidth),
         windowHeight: normalizePositiveNumber(source.windowHeight, defaults.windowHeight),
         autoCapture: source.autoCapture !== false,
-        captureTags: normalizeStringArray(source.captureTags, defaults.captureTags),
+        captureTags: normalizeCaptureTags(source.captureTags, defaults.captureTags),
         theme: normalizeThemeName(source.theme),
         maxScanMessages: normalizeBoundedInteger(source.maxScanMessages, defaults.maxScanMessages, MIN_SCAN_MESSAGES, MAX_SCAN_MESSAGES),
         maxStoredPlots: normalizeBoundedInteger(source.maxStoredPlots, defaults.maxStoredPlots, MIN_STORED_PLOTS, MAX_STORED_PLOTS),

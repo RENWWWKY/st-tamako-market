@@ -6,6 +6,8 @@
  * 为自动化测试提供稳定边界。
  */
 
+import { resolveUserMessageSource } from './message-source-core.js';
+
 /** @type {Map<string, RegExp>} 标签正则缓存 */
 const tagRegexCache = new Map();
 
@@ -22,17 +24,46 @@ const KEYWORD_PATTERNS = [
     /以下是用户的/
 ];
 
+const TAG_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_.:-]{0,63}$/;
+const MAX_CAPTURE_TAGS = 32;
+
+function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function normalizeCaptureTags(tags, fallback = []) {
+    const source = Array.isArray(tags) ? tags : fallback;
+    const seen = new Set();
+    const normalized = [];
+
+    for (const value of source) {
+        const tag = typeof value === 'string' ? value.trim() : '';
+        const key = tag.toLowerCase();
+        if (!tag || !TAG_NAME_PATTERN.test(tag) || seen.has(key)) continue;
+        seen.add(key);
+        normalized.push(tag);
+        if (normalized.length >= MAX_CAPTURE_TAGS) break;
+    }
+
+    return normalized;
+}
+
 /**
  * 获取或创建标签正则表达式（带缓存）
  * @param {string} tagName
  * @returns {RegExp}
  */
 export function getTagRegex(tagName) {
-    const cacheKey = tagName.toLowerCase();
+    const normalizedTag = normalizeCaptureTags([tagName])[0];
+    if (!normalizedTag) {
+        throw new TypeError(`非法捕获标签名: ${String(tagName)}`);
+    }
+    const cacheKey = normalizedTag.toLowerCase();
 
     if (!tagRegexCache.has(cacheKey)) {
+        const escapedTag = escapeRegExp(normalizedTag);
         const regex = new RegExp(
-            `(?<!\`)<${tagName}[^>]*>([\\s\\S]*?)<\\/${tagName}>(?!\`)`,
+            `(?<!\`)<${escapedTag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${escapedTag}\\s*>(?!\`)`,
             'gi'
         );
         tagRegexCache.set(cacheKey, regex);
@@ -75,21 +106,28 @@ export function extractTagContent(message, tagName) {
 }
 
 /**
- * 从消息中提取剧情内容
- * @param {string} message
+ * 从用户消息或已解析来源中提取剧情内容。
+ * 字符串输入仅作为旧调用兼容，按 mes 处理。
+ * @param {string | Object} input
  * @param {{ autoCapture?: boolean, captureTags?: string[] } | null} settings
  * @param {boolean} extensionEnabled
- * @returns {{ content: string, rawMessage: string } | null}
+ * @returns {{ content: string, rawMessage: string, sourceKind: 'qrf_plot' | 'mes' } | null}
  */
-export function extractPlotContent(message, settings, extensionEnabled) {
-    if (!message || !extensionEnabled || !settings?.autoCapture) {
+export function extractPlotContent(input, settings, extensionEnabled) {
+    if (!extensionEnabled || !settings?.autoCapture) {
         return null;
     }
 
-    const tags = settings.captureTags || [];
+    const source = typeof input === 'string'
+        ? { kind: 'mes', text: input, authoritative: false }
+        : (input?.kind && typeof input.text === 'string' ? input : resolveUserMessageSource(input));
+    if (!source) return null;
+
+    const message = source.text;
+    const tags = normalizeCaptureTags(settings.captureTags);
     if (tags.length === 0) return null;
 
-    const hasKeyword = KEYWORD_PATTERNS.some(pattern => {
+    const hasKeyword = source.kind === 'qrf_plot' || KEYWORD_PATTERNS.some(pattern => {
         pattern.lastIndex = 0;
         return pattern.test(message);
     });
@@ -101,10 +139,7 @@ export function extractPlotContent(message, settings, extensionEnabled) {
 
     const parts = [];
     for (const tag of tags) {
-        const trimmedTag = tag.trim();
-        if (trimmedTag) {
-            parts.push(...extractTagContent(message, trimmedTag));
-        }
+        parts.push(...extractTagContent(message, tag));
     }
 
     if (parts.length === 0) return null;
@@ -112,6 +147,7 @@ export function extractPlotContent(message, settings, extensionEnabled) {
     return {
         content: parts.join('\n\n'),
         rawMessage: message,
+        sourceKind: source.kind,
     };
 }
 

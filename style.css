@@ -19,7 +19,7 @@
     --tamako-radius: 16px;
     --tamako-opacity: 1;
     --tamako-font: 'Segoe UI', 'Microsoft YaHei', sans-serif;
-    
+
     /* 兼容旧代码 */
     --theme-primary: var(--tamako-primary);
     --theme-secondary: var(--tamako-secondary);
@@ -69,12 +69,12 @@
 .tamako-window.resizing { opacity: 0.95; }
 
 /* 缩放时全局样式 */
-body.tamako-resizing { 
-    cursor: nwse-resize !important; 
+body.tamako-resizing {
+    cursor: nwse-resize !important;
     user-select: none !important;
 }
-body.tamako-resizing * { 
-    cursor: nwse-resize !important; 
+body.tamako-resizing * {
+    cursor: nwse-resize !important;
     user-select: none !important;
 }
 
@@ -98,8 +98,8 @@ body.tamako-resizing * {
 }
 
 /* ===== 调整大小手柄 ===== */
-.tamako-resize { 
-    position: absolute; 
+.tamako-resize {
+    position: absolute;
     z-index: 10;
     touch-action: none;
 }
@@ -355,15 +355,94 @@ body.tamako-resizing * {
 /* 普通模式内容 */
 .tamako-plot-content {
     flex: 1;
+    min-width: 0;
     overflow-y: auto;
     padding: 14px;
     background: var(--tamako-surface-alt);
     border-radius: 0;
     user-select: text;
-    word-wrap: break-word;
+}
+
+#tamako-market-window .tamako-markdown {
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+#tamako-market-window .tamako-markdown .tamako-markdown-section + .tamako-markdown-section {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--tamako-border);
+}
+
+#tamako-market-window .tamako-markdown .tamako-markdown-section-title {
+    margin-bottom: 10px;
+    color: var(--tamako-primary);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: none;
+}
+
+#tamako-market-window .tamako-markdown .tamako-markdown-section-body > :first-child {
+    margin-top: 0;
+}
+
+#tamako-market-window .tamako-markdown .tamako-markdown-section-body > :last-child {
+    margin-bottom: 0;
+}
+
+#tamako-market-window .tamako-markdown pre {
+    max-width: 100%;
+    overflow-x: auto;
+    white-space: pre;
+}
+
+#tamako-market-window .tamako-markdown img {
+    max-width: 100%;
+    height: auto;
+}
+
+#tamako-market-window .tamako-markdown .tamako-table-scroll {
+    max-width: 100%;
+    margin: 10px 0;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+}
+
+#tamako-market-window .tamako-markdown .tamako-table-scroll table {
+    width: max-content;
+    min-width: 100%;
+    border-collapse: collapse;
+    background: var(--tamako-surface);
+}
+
+#tamako-market-window .tamako-markdown .tamako-table-scroll th,
+#tamako-market-window .tamako-markdown .tamako-table-scroll td {
+    min-width: 90px;
+    max-width: 320px;
+    padding: 7px 9px;
+    border: 1px solid var(--tamako-border);
+    text-align: left;
+    vertical-align: top;
+    white-space: normal;
     word-break: break-word;
-    overflow-wrap: break-word;
+    overflow-wrap: anywhere;
+}
+
+#tamako-market-window .tamako-markdown .tamako-table-scroll th {
+    background: var(--tamako-surface-alt);
+    background: color-mix(in srgb, var(--tamako-primary) 18%, var(--tamako-surface));
+}
+
+#tamako-market-window .tamako-markdown .tamako-table-scroll tbody tr:nth-child(even) {
+    background: var(--tamako-surface-alt);
+}
+
+#tamako-market-window .tamako-markdown .tamako-plot-fallback {
     white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }
 
 /* 搜索高亮 */
@@ -582,7 +661,7 @@ body.tamako-resizing * {
     /* 默认主题变量 - 防止初始化时透明 */
     --theme-primary: #FFB6C1;
     --theme-secondary: #DDA0DD;
-    
+
     position: fixed;
     z-index: 10000;
     background: linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-secondary) 100%);
@@ -996,7 +1075,7 @@ body.tamako-resizing * {
     height: 12px;
     -webkit-appearance: none;
     appearance: none;
-    background: linear-gradient(to right, 
+    background: linear-gradient(to right,
         hsl(0, 100%, 50%),
         hsl(60, 100%, 50%),
         hsl(120, 100%, 50%),
@@ -1647,12 +1726,12 @@ body.tamako-eyedropper-mode * {
 @media screen and (max-width: 480px) {
     .tamako-window { width: calc(100vw - 20px) !important; left: 10px !important; }
     .tamako-toggle-text { display: none; }
-    
+
     .tamako-template-actions {
         flex-direction: column;
         gap: 2px;
     }
-    
+
     .tamako-tpl-btn {
         padding: 3px 6px;
         font-size: 10px;

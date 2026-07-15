@@ -1,14 +1,23 @@
 // modules/constants.js
 /**
  * 玉子市场 - 常量定义
- * @version 2.9.2
+ * @version 2.10.0
  */
 
 export const extensionName = 'TamakoMarket';
-export const extensionVersion = '2.9.2';
+export const extensionVersion = '2.10.0';
 export const remoteManifestUrl = 'https://raw.githubusercontent.com/yuzi83/st-tamako-market/main/manifest.json';
 
 export const versionHistory = [
+    {
+        version: '2.10.0',
+        title: '捕获可靠性与安全渲染改进',
+        notes: [
+            '统一用户消息来源规则，优先使用顶层 qrf_plot，并在延迟写入、编辑、删除、滑动和聊天切换后自动对账。',
+            '普通展示模式支持安全 Markdown 渲染、分段展示和宽表横向滚动，渲染异常时降级为纯文本。',
+            '收紧美化器数据边界与占位符编码，避免暴露非用户消息数据并阻断脚本上下文逃逸。',
+        ],
+    },
     {
         version: '2.9.2',
         title: '设置页更新提示',

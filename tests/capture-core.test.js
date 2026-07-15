@@ -7,6 +7,7 @@ import {
     extractPlotContent,
     extractAMCodes,
     filterPlots,
+    normalizeCaptureTags,
 } from '../modules/capture-core.js';
 
 test('extractTagContent 能提取指定标签内容', () => {
@@ -60,7 +61,38 @@ test('extractPlotContent 在满足条件时返回拼接后的标签内容', () =
     assert.deepEqual(extractPlotContent(message, settings, true), {
         content: '<plot>剧情</plot>\n\n<prologue>序章</prologue>',
         rawMessage: message,
+        sourceKind: 'mes',
     });
+});
+
+test('extractPlotContent 对 qrf_plot 绕过关键词门槛并优先于 mes', () => {
+    const settings = { autoCapture: true, captureTags: ['plot'] };
+    const message = {
+        is_user: true,
+        qrf_plot: '<plot>权威内容</plot>',
+        mes: '以上是用户的本轮输入\n<plot>回退内容</plot>',
+    };
+
+    assert.deepEqual(extractPlotContent(message, settings, true), {
+        content: '<plot>权威内容</plot>',
+        rawMessage: '<plot>权威内容</plot>',
+        sourceKind: 'qrf_plot',
+    });
+});
+
+test('有效 qrf_plot 无目标标签时不回退 mes', () => {
+    const settings = { autoCapture: true, captureTags: ['plot'] };
+    const message = {
+        is_user: true,
+        qrf_plot: '<recall>无目标标签</recall>',
+        mes: '以上是用户的本轮输入\n<plot>不得捕获</plot>',
+    };
+    assert.equal(extractPlotContent(message, settings, true), null);
+});
+
+test('标签边界不误匹配前缀标签，非法和重复标签被规范化', () => {
+    assert.deepEqual(normalizeCaptureTags([' plot ', 'PLOT', 'bad tag', 'scene_direction']), ['plot', 'scene_direction']);
+    assert.deepEqual(extractTagContent('<plotExtra>错误</plotExtra><plot>正确</plot>', 'plot'), ['<plot>正确</plot>']);
 });
 
 test('extractAMCodes 提取、去重并标准化 AM 编号', () => {

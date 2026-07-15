@@ -2,7 +2,7 @@
 /**
  * 玉子市场 - 事件系统
  * @version 2.8.6
- * 
+ *
  * 规范化事件监听，使用 SillyTavern 官方事件类型
  */
 
@@ -41,13 +41,53 @@ export const EventTypes = {
 export const EventAliases = {
     'chat_changed': ['chat_changed', 'chatchanged', 'CHAT_CHANGED'],
     'message_sent': ['message_sent', 'MESSAGE_SENT'],
+    'user_message_rendered': ['user_message_rendered', 'USER_MESSAGE_RENDERED'],
     'message_rendered': ['message_rendered', 'MESSAGE_RENDERED'],
     'generation_started': ['generation_started', 'GENERATION_STARTED'],
     'generation_ended': ['generation_ended', 'GENERATION_ENDED'],
     'message_deleted': ['message_deleted', 'MESSAGE_DELETED', 'message_removed'],
-    'message_edited': ['message_edited', 'MESSAGE_EDITED'],
+    'message_updated': ['message_updated', 'MESSAGE_UPDATED', 'message_edited', 'MESSAGE_EDITED'],
     'message_swiped': ['message_swiped', 'MESSAGE_SWIPED']
 };
+
+const MESSAGE_INDEX_FIELDS = ['messageIndex', 'message_index', 'index', 'mesId', 'mes_id'];
+
+function parseSafeIndex(value) {
+    if (Number.isSafeInteger(value) && value >= 0) return value;
+    if (typeof value === 'string' && /^(0|[1-9]\d*)$/.test(value.trim())) {
+        const parsed = Number(value);
+        return Number.isSafeInteger(parsed) ? parsed : null;
+    }
+    return null;
+}
+
+/**
+ * 从 SillyTavern 事件参数中解析可信消息索引。
+ * @param {unknown[]} args
+ * @param {unknown[]} chat
+ * @returns {number|null}
+ */
+export function resolveMessageEventIndex(args, chat = []) {
+    const safeChat = Array.isArray(chat) ? chat : [];
+    for (const value of Array.isArray(args) ? args : []) {
+        const direct = parseSafeIndex(value);
+        if (direct !== null && direct < safeChat.length) return direct;
+        if (!value || typeof value !== 'object') continue;
+
+        for (const field of MESSAGE_INDEX_FIELDS) {
+            const nested = parseSafeIndex(value[field]);
+            if (nested !== null && nested < safeChat.length) return nested;
+        }
+
+        const identityIndex = safeChat.indexOf(value);
+        if (identityIndex >= 0) return identityIndex;
+        if (value.message && typeof value.message === 'object') {
+            const messageIndex = safeChat.indexOf(value.message);
+            if (messageIndex >= 0) return messageIndex;
+        }
+    }
+    return null;
+}
 
 /**
  * 事件监听器管理类
@@ -90,7 +130,8 @@ export class EventListenerManager {
             originalHandler: handler,
             options: options.eventOptions,
             registered: false,
-            mode: 'unknown'
+            mode: 'unknown',
+            registeredEventTypes: [],
         };
 
         // DOM EventTarget 路径
@@ -99,6 +140,7 @@ export class EventListenerManager {
                 eventSource.addEventListener(eventType, wrappedHandler, options.eventOptions);
                 listenerEntry.registered = true;
                 listenerEntry.mode = 'dom';
+                listenerEntry.registeredEventTypes.push(eventType);
             } catch (e) {
                 console.warn(`[玉子市场] 注册 DOM 事件失败: ${eventType}`, e);
             }
@@ -111,6 +153,7 @@ export class EventListenerManager {
                 try {
                     eventSource.on(alias, wrappedHandler);
                     listenerEntry.registered = true;
+                    listenerEntry.registeredEventTypes.push(alias);
                 } catch (e) {
                     // 忽略不支持的事件类型
                 }
@@ -120,6 +163,7 @@ export class EventListenerManager {
                 eventSource.on(eventType, wrappedHandler);
                 listenerEntry.registered = true;
                 listenerEntry.mode = 'eventSource';
+                listenerEntry.registeredEventTypes.push(eventType);
             } catch (e) {
                 console.warn(`[玉子市场] 注册事件失败: ${eventType}`, e);
             }
@@ -140,7 +184,7 @@ export class EventListenerManager {
     _createDebouncedHandler(eventType, handler, debounce) {
         return (...args) => {
             const timerKey = eventType;
-            
+
             // 清除之前的计时器
             if (this.debounceTimers.has(timerKey)) {
                 clearTimeout(this.debounceTimers.get(timerKey));
@@ -164,8 +208,8 @@ export class EventListenerManager {
      */
     unregister(eventSource, eventType, handler) {
         const index = this.listeners.findIndex(
-            l => l.eventSource === eventSource && 
-                 l.eventType === eventType && 
+            l => l.eventSource === eventSource &&
+                 l.eventType === eventType &&
                  l.originalHandler === handler
         );
 
@@ -181,8 +225,8 @@ export class EventListenerManager {
      * @private
      */
     _removeListener(listener) {
-        const { eventSource, eventType, handler, registered, options, mode } = listener;
-        
+        const { eventSource, eventType, handler, registered, options, mode, registeredEventTypes } = listener;
+
         if (!registered) return;
 
         if (mode === 'dom' && typeof eventSource?.removeEventListener === 'function') {
@@ -194,25 +238,13 @@ export class EventListenerManager {
             return;
         }
 
-        // 尝试使用别名移除
-        if (EventAliases[eventType]) {
-            for (const alias of EventAliases[eventType]) {
-                try {
-                    if (typeof eventSource.off === 'function') {
-                        eventSource.off(alias, handler);
-                    } else if (typeof eventSource.removeListener === 'function') {
-                        eventSource.removeListener(alias, handler);
-                    }
-                } catch (e) {
-                    // 忽略错误
-                }
-            }
-        } else {
+        const eventTypes = registeredEventTypes?.length ? registeredEventTypes : [eventType];
+        for (const registeredType of eventTypes) {
             try {
                 if (typeof eventSource.off === 'function') {
-                    eventSource.off(eventType, handler);
+                    eventSource.off(registeredType, handler);
                 } else if (typeof eventSource.removeListener === 'function') {
-                    eventSource.removeListener(eventType, handler);
+                    eventSource.removeListener(registeredType, handler);
                 }
             } catch (e) {
                 // 忽略错误
@@ -287,7 +319,7 @@ export function isEventSupported(eventSource, eventType) {
     if (!eventSource || typeof eventSource.on !== 'function') {
         return false;
     }
-    
+
     // 简单检查：尝试注册一个空函数看是否报错
     try {
         const testHandler = () => {};
